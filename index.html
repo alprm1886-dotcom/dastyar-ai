@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>مهر سارا</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden}
+body{
+  font-family:Tahoma,Arial,sans-serif;
+  background:#fff;
+  color:#202124;
+  direction:rtl;
+}
+header{
+  height:72px;
+  background:#fff;
+  color:#202124;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 22px;
+  font-size:20px;
+  font-weight:bold;
+  border:0;
+}
+.header-icon{
+  width:52px;height:52px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;background:#fff;
+}
+#chat{
+  position:absolute;
+  top:72px;bottom:112px;left:0;right:0;
+  overflow:auto;
+  padding:18px 18px 25px;
+  background:#fff;
+}
+.msg{
+  max-width:88%;
+  padding:11px 14px;
+  margin:9px 0;
+  border-radius:17px;
+  line-height:1.8;
+  white-space:pre-wrap;
+  font-size:16px;
+}
+.user{background:#f1f3f4;margin-right:auto}
+.bot{background:#f8f9fa;border:1px solid #eee;margin-left:auto}
+.msg img,.msg video{display:block;max-width:100%;max-height:300px;border-radius:12px;margin-top:4px}
+.msg audio{max-width:100%;margin-top:4px}
+.quick{
+  position:absolute;
+  bottom:116px;
+  right:18px;
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  align-items:flex-start;
+}
+.quick button{
+  border:0;background:transparent;color:#5f6368;
+  font-family:inherit;font-size:14px;
+  display:flex;align-items:center;gap:12px;
+  padding:3px 4px;cursor:pointer;
+}
+.quick .qicon{font-size:25px;width:28px;text-align:center}
+.bar{
+  position:absolute;
+  bottom:20px;left:22px;right:22px;
+  height:68px;
+  background:#fff;
+  border:1px solid #eee;
+  border-radius:36px;
+  box-shadow:0 2px 14px rgba(0,0,0,.08);
+  padding:7px 10px;
+  display:flex;align-items:center;gap:3px;
+  direction:ltr;
+}
+#input{
+  flex:1;min-width:0;border:0;outline:0;
+  font-family:inherit;font-size:11px;
+  text-align:right;direction:rtl;
+  padding:0 2px;
+  white-space:nowrap;
+}
+.bar button{
+  border:0;background:transparent;color:#202124;
+  font-size:25px;min-width:40px;height:48px;
+  border-radius:50%;cursor:pointer;
+}
+#send{
+  background:#1677ff;color:#fff;font-size:25px;
+}
+#send{display:flex;align-items:center;justify-content:center}
+.voice{
+  background:#1677ff!important;color:#fff!important;
+}
+.small{display:none}
+body.started .quick{display:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-icon">◔</div>
+  <div style="opacity:.0">مهر سارا</div>
+  <div class="header-icon">☰</div>
+</header>
+<div id="chat"></div>
+<div class="quick">
+  <button type="button" id="quickPhoto"><span class="qicon">▧</span><span>یک تصویر ایجاد کنید</span></button>
+  <button type="button" id="quickWrite"><span class="qicon">✎</span><span>بنویسید یا ویرایش کنید</span></button>
+  <button type="button" id="quickWeb"><span class="qicon">◎</span><span>جستجو در وب</span></button>
+</div>
+
+<div class="bar">
+  <button type="button" id="audioBtn" class="voice" title="فرستادن صدا">🎙</button>
+  <input id="input" type="text" placeholder="پیامتان را برای مهر سارا بنویسید" autocomplete="off">
+  <input id="photo" type="file" accept="image/*" style="display:none">
+  <input id="video" type="file" accept="video/*" style="display:none">
+  <input id="audio" type="file" accept="audio/*" style="display:none">
+  <button type="button" id="videoBtn" title="فرستادن فیلم">🎥</button>
+  <button type="button" id="photoBtn" title="فرستادن عکس">📷</button>
+  <button type="button" id="send" title="ارسال">↑</button>
+</div>
+<script>
+const chat=document.getElementById("chat"), input=document.getElementById("input");
+// اتصال امن: کلید Gemini در سرور نگهداری می‌شود و داخل فایل یا localStorage ذخیره نمی‌شود.
+const API_BASE_URL = "";
+
+async function geminiGenerate(message){
+  const r = await fetch(API_BASE_URL + "/api/chat", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({message})
+  });
+
+  let d={};
+  try{ d=await r.json(); }catch{}
+
+  if(!r.ok) throw new Error(d?.error || ("HTTP "+r.status));
+  if(!d.reply) throw new Error("سرور پاسخی برنگرداند.");
+  return d.reply;
+}
+
+function add(text,who){
+ const d=document.createElement("div"); d.className="msg "+who; d.textContent=text;
+ chat.appendChild(d); chat.scrollTop=chat.scrollHeight;
+}
+function localBrain(q){
+ q=q.trim().toLowerCase();
+ if(!q) return "پیامت خالی است.";
+
+ // سلام و اطلاعات پایه
+ if(q.includes("سلام")||q.includes("درود")) return "سلام! 👋 خوش اومدی! چه سؤالی داری؟";
+ if(q.includes("اسمت")||q.includes("نامت")) return "من «مهر سارا» هستم؛ نسخهٔ اولیهٔ دستیار پروژه‌مان.";
+ if(q.includes("تو کی هستی")||q.includes("چی هستی")) return "من یک مهر سارا هستم که برای پروژهٔ شما ساخته شده‌ام و می‌توانم به سؤال‌های مختلف پاسخ بدهم.";
+ if(q.includes("ممنون")||q.includes("مرسی")||q.includes("متشکرم")) return "خواهش می‌کنم 😊";
+
+ // محاسبات ساده
+ if(/(?:جمع|حاصل|حساب کن|چند میشه|چند می‌شود)/.test(q) && /\d/.test(q)){
+   const nums=q.match(/-?\d+(?:\.\d+)?/g)||[];
+   if(nums.length>=2) return "نتیجه: "+nums.reduce((a,b)=>a+Number(b),0);
+ }
+ if(/(?:ضرب|×|\*)/.test(q) && /\d/.test(q)){
+   const nums=q.match(/-?\d+(?:\.\d+)?/g)||[];
+   if(nums.length>=2) return "نتیجه: "+nums.reduce((a,b)=>a*Number(b),1);
+ }
+ if(/(?:تفریق|منهای|-)/.test(q) && /\d/.test(q)){
+   const nums=q.match(/-?\d+(?:\.\d+)?/g)||[];
+   if(nums.length>=2) return "نتیجه: "+(Number(nums[0])-Number(nums[1]));
+ }
+ if(/(?:تقسیم|÷|\/)/.test(q) && /\d/.test(q)){
+   const nums=q.match(/-?\d+(?:\.\d+)?/g)||[];
+   if(nums.length>=2) return Number(nums[1])===0 ? "تقسیم بر صفر ممکن نیست." : "نتیجه: "+(Number(nums[0])/Number(nums[1]));
+ }
+
+ // چند پاسخ عمومی برای آزمایش اولیه
+ if(q.includes("جریان الکتریکی")) return "جریان الکتریکی، حرکت جهت‌دار بارهای الکتریکی در یک مدار است. واحد اندازه‌گیری آن آمپر (A) است.";
+ if(q.includes("جریان دریایی")||q.includes("جریانات دریایی")) return "جریان‌های دریایی، حرکت پیوستهٔ آب در اقیانوس‌ها و دریاها هستند که بر اثر عواملی مانند باد، اختلاف دما و شوری و چرخش زمین ایجاد می‌شوند.";
+ if(q.includes("فتوسنتز")) return "فتوسنتز فرایندی است که گیاهان با استفاده از نور خورشید، آب و دی‌اکسیدکربن، مواد غذایی می‌سازند و اکسیژن آزاد می‌کنند.";
+ if(q.includes("اتم چیست")||q.includes("اتم چیه")) return "اتم کوچک‌ترین واحد سازندهٔ یک عنصر است و از هسته (پروتون و نوترون) و الکترون‌ها تشکیل شده است.";
+ if(q.includes("آب در چند درجه میجوشد")||q.includes("آب در چند درجه می جوشد")) return "در فشار معمول سطح دریا، آب در ۱۰۰ درجهٔ سانتی‌گراد می‌جوشد.";
+ if(q.includes("پایتخت ایران")) return "پایتخت ایران تهران است.";
+ if(q.includes("سیاره") && q.includes("بزرگ")) return "بزرگ‌ترین سیارهٔ منظومهٔ شمسی مشتری است.";
+ if(q.includes("خورشید") && q.includes("سیاره")) return "خورشید یک ستاره است، نه یک سیاره.";
+ if(q.includes("فیزیک چیست")||q.includes("فیزیک چیه")) return "فیزیک علمی است که پدیده‌های طبیعت، ماده، انرژی، نیرو و حرکت را بررسی می‌کند.";
+ if(q.includes("شیمی چیست")||q.includes("شیمی چیه")) return "شیمی علمی است که ماده، ویژگی‌های آن و تغییراتی را که در آن رخ می‌دهد بررسی می‌کند.";
+ if(q.includes("ریاضی چیست")||q.includes("ریاضی چیه")) return "ریاضی دانشی برای بررسی عددها، الگوها، اندازه‌ها، شکل‌ها و رابطه‌های منطقی است.";
+
+ // پرسش‌های سادهٔ نوشتاری
+ if(q.includes("یک جمله") && q.includes("دوستی")) return "دوستی خوب باعث می‌شود در کنار یکدیگر احساس آرامش و شادی کنیم.";
+ if(q.includes("تعریف") && q.includes("آزمایشگاه")) return "آزمایشگاه محلی مجهز برای انجام آزمایش‌ها و بررسی علمی مواد و پدیده‌هاست.";
+
+ return "سؤال خوبی است! در این نسخه می‌توانم به سؤال‌های عمومی و چند موضوع علمی و محاسباتی پاسخ بدهم. برای پاسخ به سؤال‌های کاملاً جدید و پیچیده، باید هستهٔ واقعی هوش مصنوعی را به پروژه وصل کنیم.";
+}
+
+async function send(){
+  const q=input.value.trim();
+  if(!q)return;
+
+  document.body.classList.add("started");
+  add(q,"user");
+  input.value="";
+  add("در حال فکر کردن...","bot");
+  const thinking=chat.lastElementChild;
+
+  try{
+    const reply=await geminiGenerate(q);
+    thinking.remove();
+    add(reply,"bot");
+  }catch(e){
+    thinking.remove();
+    add("❌ اتصال به هوش مصنوعی انجام نشد.\n"+(e.message||"خطای نامشخص"),"bot");
+  }
+}
+
+function attachFile(file,type){
+ if(!file)return;
+ const sizeMB=(file.size/1024/1024).toFixed(1);
+ let label = type==="image" ? "📷 عکس" : type==="video" ? "🎥 فیلم" : "🎤 صدا";
+ add(label+" فرستاده شد: "+file.name+" ("+sizeMB+" MB)","user");
+
+ if(type==="image"){
+   const url=URL.createObjectURL(file);
+   const d=document.createElement("div");
+   d.className="msg user";
+   const img=document.createElement("img");
+   img.src=url; img.style.maxWidth="100%"; img.style.borderRadius="10px";
+   d.appendChild(img); chat.appendChild(d); chat.scrollTop=chat.scrollHeight;
+ }
+ if(type==="video"){
+   const url=URL.createObjectURL(file);
+   const d=document.createElement("div");
+   d.className="msg user";
+   const v=document.createElement("video");
+   v.src=url; v.controls=true; v.style.maxWidth="100%"; v.style.borderRadius="10px";
+   d.appendChild(v); chat.appendChild(d); chat.scrollTop=chat.scrollHeight;
+ }
+ if(type==="audio"){
+   const url=URL.createObjectURL(file);
+   const d=document.createElement("div");
+   d.className="msg user";
+   const a=document.createElement("audio");
+   a.src=url; a.controls=true; a.style.maxWidth="100%";
+   d.appendChild(a); chat.appendChild(d); chat.scrollTop=chat.scrollHeight;
+ }
+
+ setTimeout(function(){
+   add(type==="image"
+     ?"عکس دریافت شد. در مرحلهٔ بعد قابلیت تحلیل تصویر را اضافه می‌کنیم."
+     :type==="video"
+     ?"فیلم دریافت شد. در مرحلهٔ بعد قابلیت بررسی فیلم را اضافه می‌کنیم."
+     :"فایل صوتی دریافت شد. در مرحلهٔ بعد قابلیت تبدیل صدا به متن را اضافه می‌کنیم.","bot");
+ },250);
+}
+
+document.getElementById("quickPhoto").addEventListener("click",function(){
+ document.body.classList.add("started");
+ document.getElementById("photo").click();
+});
+document.getElementById("quickWrite").addEventListener("click",function(){
+ document.body.classList.add("started");
+ input.focus();
+});
+document.getElementById("quickWeb").addEventListener("click",function(){
+ document.body.classList.add("started");
+ add("جستجو در وب","user");
+ setTimeout(function(){
+   const q=input.value.trim();
+   const url="https://www.google.com/search?q="+encodeURIComponent(q||"جستجو در وب");
+   window.open(url,"_blank");
+   add("نتایج جستجو در گوگل باز شد. برای پاسخ هوشمند، سؤال را در کادر پایین بنویسید.","bot");
+ },180);
+});
+document.getElementById("send").addEventListener("click",send);
+document.getElementById("photoBtn").addEventListener("click",function(){
+ document.getElementById("photo").click();
+});
+document.getElementById("videoBtn").addEventListener("click",function(){
+ document.getElementById("video").click();
+});
+document.getElementById("audioBtn").addEventListener("click",function(){
+ document.getElementById("audio").click();
+});
+document.getElementById("photo").addEventListener("change",function(e){
+ attachFile(e.target.files[0],"image"); e.target.value="";
+});
+document.getElementById("video").addEventListener("change",function(e){
+ attachFile(e.target.files[0],"video"); e.target.value="";
+});
+document.getElementById("audio").addEventListener("change",function(e){
+ attachFile(e.target.files[0],"audio"); e.target.value="";
+});
+input.addEventListener("keydown",function(e){
+ if(e.key==="Enter"){
+   e.preventDefault();
+   send();
+ }
+});
+
+</script>
+<button id="openGemini" style="position:fixed;right:12px;bottom:12px;z-index:9998;border:0;border-radius:999px;padding:10px 14px">☁️ اتصال امن</button>
+<script>
+document.getElementById("openGemini").onclick=function(){
+  alert("این نسخه از اتصال سروری استفاده می‌کند. کلید Gemini داخل فایل یا گوشی کاربران ذخیره نمی‌شود.");
+};
+</script>
+</body>
+</html>
